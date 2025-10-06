@@ -1,10 +1,10 @@
 #!/bin/bash
-# Public EC2 User Data (Bastion)
+# Public EC2 User Data (Bastion) with injected private key
 
 set -e
 
 LOG_FILE="/var/log/userdata.log"
-exec > >(tee -a \$LOG_FILE | logger -t user-data -s 2>/dev/console) 2>&1
+exec > >(tee -a $LOG_FILE | logger -t user-data -s 2>/dev/console) 2>&1
 
 echo "Starting Public EC2 setup..."
 
@@ -23,7 +23,15 @@ sudo ./aws/install --update
 sudo mkdir -p /home/ubuntu/scripts
 sudo chown ubuntu:ubuntu /home/ubuntu/scripts
 
-# Create SSH connection script
+# Inject private key content from Terraform variable
+PRIVATE_KEY_CONTENT="${private_key_content}"
+
+mkdir -p /home/ubuntu/.ssh
+echo "$PRIVATE_KEY_CONTENT" > /home/ubuntu/.ssh/id_rsa
+chmod 600 /home/ubuntu/.ssh/id_rsa
+chown ubuntu:ubuntu /home/ubuntu/.ssh/id_rsa
+
+# Create SSH connection script to private EC2
 cat << EOF | sudo tee /home/ubuntu/scripts/connect_to_private.sh > /dev/null
 #!/bin/bash
 PRIVATE_IP="${private_ec2_ip}"
