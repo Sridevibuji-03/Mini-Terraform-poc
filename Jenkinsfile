@@ -42,7 +42,7 @@ pipeline {
             steps {
                 echo "Checking if test file exists in S3..."
                 sh """
-                aws s3 ls s3://$(terraform output -raw s3_bucket_name)/test-files/
+                aws s3 ls s3://\$(terraform output -raw s3_bucket_name)/test-files/
                 """
             }
         }
