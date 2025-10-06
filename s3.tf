@@ -1,7 +1,7 @@
 # Private S3 bucket
 resource "aws_s3_bucket" "s3_private1" {
   bucket = var.s3_bucket_name   # must be globally unique
-
+  force_destroy = true
   tags = {
     Name       = "${var.project_name}-s3-private1"
     Managed_by = "${var.managed_by}"

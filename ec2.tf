@@ -9,6 +9,17 @@ resource "aws_instance" "ec2-public1" {
 
   iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
 
+  # Example provisioner
+  provisioner "remote-exec" {
+    inline = ["echo Hello from Public EC2"]
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"
+      private_key = var.private_key_content
+      host        = self.public_ip
+    }
+  }
+
   user_data = templatefile("${path.module}/userdata/public-ec2-userdata.sh", {
     private_ec2_ip = aws_instance.ec2-private1.private_ip
   })
@@ -21,6 +32,7 @@ resource "aws_instance" "ec2-public1" {
   depends_on = [aws_internet_gateway.igw1]
 }
 
+
 # Private EC2
 resource "aws_instance" "ec2-private1" {
   ami                    = "ami-00271c85bf8a52b84"
@@ -30,6 +42,16 @@ resource "aws_instance" "ec2-private1" {
   vpc_security_group_ids = [aws_security_group.private_ec2_sg.id]
 
   iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
+  
+  provisioner "remote-exec" {
+  inline = ["echo Hello from Private EC2"]
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = var.private_key_content
+    host        = self.private_ip
+  }
+}
 
   user_data = templatefile("${path.module}/userdata/private-ec2-userdata.sh", {
     s3_bucket_name = var.s3_bucket_name

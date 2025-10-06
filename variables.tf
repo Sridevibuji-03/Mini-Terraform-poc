@@ -51,3 +51,9 @@ variable "aws_region" {
   type        = string
   default     = "us-west-1"
 }
+
+variable "private_key_content" {
+  description = "Private key content for SSH access"
+  type        = string
+  sensitive   = true
+}

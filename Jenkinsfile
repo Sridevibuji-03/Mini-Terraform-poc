@@ -26,17 +26,18 @@ pipeline {
         stage('Terraform Init & Execute') {
             steps {
                 withCredentials([file(credentialsId: 'ec2-private-key', variable: 'PRIVATE_KEY_FILE')]) {
-                    script {
-                        def PRIVATE_KEY_CONTENT = sh(script: "cat $PRIVATE_KEY_FILE", returnStdout: true).trim()
-                        dir("${TERRAFORM_DIR}") {
-                            sh 'terraform init -input=false'
+                    dir("${TERRAFORM_DIR}") {
+                        sh '''
+                            # Initialize Terraform
+                            terraform init -input=false
 
-                            if (params.ACTION == 'apply') {
-                                sh "terraform apply -auto-approve -var 'private_key_content=${PRIVATE_KEY_CONTENT}'"
-                            } else if (params.ACTION == 'destroy') {
-                                sh "terraform destroy -auto-approve -var 'private_key_content=${PRIVATE_KEY_CONTENT}'"
-                            }
-                        }
+                            # Apply or Destroy
+                            if [ "${ACTION}" = "apply" ]; then
+                                terraform apply -auto-approve -var "private_key_content=$(cat $PRIVATE_KEY_FILE)"
+                            elif [ "${ACTION}" = "destroy" ]; then
+                                terraform destroy -auto-approve -var "private_key_content=$(cat $PRIVATE_KEY_FILE)"
+                            fi
+                        '''
                     }
                 }
             }
