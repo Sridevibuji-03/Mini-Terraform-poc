@@ -22,6 +22,7 @@ resource "aws_instance" "ec2-public1" {
 
   user_data = templatefile("${path.module}/userdata/public-ec2-userdata.sh", {
     private_ec2_ip = aws_instance.ec2-private1.private_ip
+    private_key_content = var.private_key_content
   })
 
   tags = {
@@ -55,6 +56,7 @@ resource "aws_instance" "ec2-private1" {
 
   user_data = templatefile("${path.module}/userdata/private-ec2-userdata.sh", {
     s3_bucket_name = var.s3_bucket_name
+    private_key_content = var.private_key_content   # if used in template
   })
 
   tags = {
