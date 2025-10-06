@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/yourusername/terraform-mini-project.git'
+                git branch: 'main', url: 'https://github.com/Sridevibuji-03/Mini-Terraform-poc.git'
             }
         }
         stage('Terraform Init & Apply') {
