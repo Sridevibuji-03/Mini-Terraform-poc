@@ -11,9 +11,9 @@ resource "aws_instance" "ec2-public1" {
 
   iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
 
-  # Simple remote-exec to confirm SSH works
+  # Optional: simple check SSH
   provisioner "remote-exec" {
-    inline = ["echo 'Hello from Public EC2 - SSH working fine'"]
+    inline = ["echo 'Hello from Public EC2'"]
     connection {
       type        = "ssh"
       user        = "ubuntu"
@@ -21,12 +21,6 @@ resource "aws_instance" "ec2-public1" {
       host        = self.public_ip
     }
   }
-
-  # Pass private EC2 details to public EC2 via user_data
-  user_data = templatefile("${path.module}/userdata/public-ec2-userdata.sh", {
-    private_ec2_ip      = aws_instance.ec2-private1.private_ip
-    private_key_content = var.private_key_content
-  })
 
   tags = {
     Name       = "${var.project_name}-ec2_public1"
@@ -37,7 +31,7 @@ resource "aws_instance" "ec2-public1" {
 }
 
 ##############################################
-# Private EC2 Instance (Fixed Connection)
+# Private EC2 Instance
 ##############################################
 resource "aws_instance" "ec2-private1" {
   ami                    = "ami-00271c85bf8a52b84"
@@ -48,30 +42,28 @@ resource "aws_instance" "ec2-private1" {
 
   iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
 
-  # ✅ FIXED: Connect through bastion (public EC2)
+  # Connect through public EC2 as bastion
   provisioner "remote-exec" {
     inline = [
-      "echo 'Connected to Private EC2 via Bastion successfully!'",
+      "echo 'Connected to Private EC2 via Bastion!'",
       "sudo apt update -y",
       "sudo apt install -y awscli"
     ]
-
     connection {
       type                = "ssh"
       user                = "ubuntu"
       private_key         = var.private_key_content
       host                = self.private_ip
-      # 👇 These 3 lines fix your timeout issue
       bastion_host        = aws_instance.ec2-public1.public_ip
       bastion_user        = "ubuntu"
       bastion_private_key = var.private_key_content
     }
   }
 
-  # Optional user_data (kept as you had)
+  # Optional user_data
   user_data = templatefile("${path.module}/userdata/private-ec2-userdata.sh", {
-    s3_bucket_name       = var.s3_bucket_name
-    private_key_content  = var.private_key_content
+    s3_bucket_name      = var.s3_bucket_name
+    private_key_content = var.private_key_content
   })
 
   tags = {
@@ -79,5 +71,5 @@ resource "aws_instance" "ec2-private1" {
     Managed_by = var.managed_by
   }
 
-  depends_on = [aws_nat_gateway.nat1]
+  depends_on = [aws_nat_gateway.nat1, aws_instance.ec2-public1]
 }
