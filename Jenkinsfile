@@ -1,96 +1,55 @@
 pipeline {
     agent any
-
-    // 1️⃣ Parameter for apply/destroy
     parameters {
-        choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Terraform action: apply or destroy')
+        choice(name: 'ACTION', choices: ['apply', 'destroy'], description: 'Terraform action')
+        choice(name: 'ENV', choices: ['dev', 'prod'], description: 'Environment')
     }
-
     environment {
         AWS_ACCESS_KEY_ID     = credentials('aws-access-key')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
         REGION                = 'us-west-1'
         TERRAFORM_DIR         = './'
     }
-
     stages {
-
-        // 2️⃣ Checkout Code
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main', url: 'https://github.com/Sridevibuji-03/Mini-Terraform-poc.git'
-            }
+        stage('Checkout') {
+            steps { git branch: 'main', url: 'https://github.com/Sridevibuji-03/Mini-Terraform-poc.git' }
         }
-
-        // 3️⃣ Terraform Init + Apply/Destroy
-        stage('Terraform Init & Execute') {
+        stage('Terraform Action') {
             steps {
                 withCredentials([file(credentialsId: 'ec2-private-key', variable: 'PRIVATE_KEY_FILE')]) {
-                    dir("${TERRAFORM_DIR}") {
-                        sh '''
-                            # Initialize Terraform
-                            terraform init -input=false
-
-                            # Apply or Destroy
-                            if [ "${ACTION}" = "apply" ]; then
-                                terraform apply -auto-approve -var "private_key_content=$(cat $PRIVATE_KEY_FILE)"
-                            elif [ "${ACTION}" = "destroy" ]; then
-                                terraform destroy -auto-approve -var "private_key_content=$(cat $PRIVATE_KEY_FILE)"
-                            fi
-                        '''
+                    script {
+                        sh """
+                        terraform init -input=false
+                        terraform ${params.ACTION} -auto-approve -var "env=${params.ENV}" -var "private_key_content=$(cat $PRIVATE_KEY_FILE)"
+                        """
                     }
                 }
             }
         }
-
-        // 4️⃣ Verify Outputs (only on apply)
         stage('Verify Outputs') {
-            when {
-                expression { params.ACTION == 'apply' }
-            }
+            when { expression { params.ACTION == 'apply' } }
             steps {
                 script {
-                    def PUBLIC_IP  = sh(script: 'terraform output -raw public_ec2_public_ip', returnStdout: true).trim()
-                    def PRIVATE_IP = sh(script: 'terraform output -raw private_ec2_private_ip', returnStdout: true).trim()
-                    def S3_BUCKET  = sh(script: 'terraform output -raw s3_bucket_name', returnStdout: true).trim()
+                    def outputs = [
+                        PUBLIC_IP: sh(script:'terraform output -raw public_ec2_public_ip', returnStdout:true).trim(),
+                        PRIVATE_IP: sh(script:'terraform output -raw private_ec2_private_ip', returnStdout:true).trim(),
+                        S3_BUCKET: sh(script:'terraform output -raw s3_bucket_name', returnStdout:true).trim()
+                    ]
+                    echo "Outputs: ${outputs}"
 
-                    echo "Public EC2 IP: ${PUBLIC_IP}"
-                    echo "Private EC2 IP: ${PRIVATE_IP}"
-                    echo "S3 Bucket: ${S3_BUCKET}"
+                    // Wait for S3 file with retry
+                    def maxRetries = 10
+                    def count = 0
+                    while (count < maxRetries) {
+                        def result = sh(script: "aws s3 ls s3://${outputs.S3_BUCKET}/test-files/ || echo 'Not yet'", returnStdout: true).trim()
+                        if (!result.contains('Not yet')) { echo "File found!"; break }
+                        echo "Waiting for S3 file... retry ${count + 1}/${maxRetries}"
+                        sleep(15); count++
+                    }
+                    if (count == maxRetries) error "S3 file not found after retries!"
                 }
             }
         }
-
-        // 5️⃣ Wait for Private EC2 to upload file (only on apply)
-        stage('Wait for Private EC2 to Upload File') {
-            when {
-                expression { params.ACTION == 'apply' }
-            }
-            steps {
-                echo "Waiting 2 minutes for Private EC2 userdata to upload file..."
-                sh 'sleep 120'
-            }
-        }
-
-        // 6️⃣ Verify S3 Upload (only on apply)
-        stage('Verify S3 Upload') {
-            when {
-                expression { params.ACTION == 'apply' }
-            }
-            steps {
-                script {
-                    def bucket = sh(script: 'terraform output -raw s3_bucket_name', returnStdout: true).trim()
-                    echo "Checking if test file exists in S3 bucket: ${bucket}"
-                    sh "aws s3 ls s3://${bucket}/test-files/"
-                }
-            }
-        }
-
     }
-
-    post {
-        always {
-            echo "Pipeline finished for action: ${params.ACTION}"
-        }
-    }
+    post { always { echo "Pipeline finished for action: ${params.ACTION}" } }
 }

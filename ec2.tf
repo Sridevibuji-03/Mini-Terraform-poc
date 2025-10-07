@@ -1,6 +1,6 @@
-##############################################
+
 # Public EC2 Instance
-##############################################
+
 resource "aws_instance" "ec2-public1" {
   ami                         = "ami-00271c85bf8a52b84"
   instance_type               = var.instance_name
@@ -10,17 +10,10 @@ resource "aws_instance" "ec2-public1" {
   vpc_security_group_ids      = [aws_security_group.public_ec2_sg.id]
 
   iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
+ 
 
-  # Optional: simple check SSH
-  provisioner "remote-exec" {
-    inline = ["echo 'Hello from Public EC2'"]
-    connection {
-      type        = "ssh"
-      user        = "ubuntu"
-      private_key = var.private_key_content
-      host        = self.public_ip
-    }
-  }
+  user_data = file("${path.module}/userdata/public-ec2-userdata.sh")
+
 
   tags = {
     Name       = "${var.project_name}-ec2_public1"
@@ -30,9 +23,9 @@ resource "aws_instance" "ec2-public1" {
   depends_on = [aws_internet_gateway.igw1]
 }
 
-##############################################
+
 # Private EC2 Instance
-##############################################
+
 resource "aws_instance" "ec2-private1" {
   ami                    = "ami-00271c85bf8a52b84"
   instance_type          = var.instance_name
@@ -42,28 +35,11 @@ resource "aws_instance" "ec2-private1" {
 
   iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
 
-  # Connect through public EC2 as bastion
-  provisioner "remote-exec" {
-    inline = [
-      "echo 'Connected to Private EC2 via Bastion!'",
-      "sudo apt update -y",
-      "sudo apt install -y awscli"
-    ]
-    connection {
-      type                = "ssh"
-      user                = "ubuntu"
-      private_key         = var.private_key_content
-      host                = self.private_ip
-      bastion_host        = aws_instance.ec2-public1.public_ip
-      bastion_user        = "ubuntu"
-      bastion_private_key = var.private_key_content
-    }
-  }
+  
 
   # Optional user_data
   user_data = templatefile("${path.module}/userdata/private-ec2-userdata.sh", {
-    s3_bucket_name      = var.s3_bucket_name
-    private_key_content = var.private_key_content
+    s3_bucket_name = aws_s3_bucket.s3_private1.bucket
   })
 
   tags = {

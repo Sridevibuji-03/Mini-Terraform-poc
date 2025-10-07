@@ -52,8 +52,9 @@ variable "aws_region" {
   default     = "us-west-1"
 }
 
-variable "private_key_content" {
-  description = "Private key content for SSH access"
+# Availability zone
+variable "availability_zone" {
+  description = "Availability zone"
   type        = string
-  sensitive   = true
+  default     = "us-west-1a"
 }

@@ -15,6 +15,10 @@ resource "aws_iam_role" "private_ec2_role" {
       }
     ]
   })
+  tags = {
+    Name       = "${var.project_name}-ec2-private1-role"
+    Managed_by = var.managed_by
+  }
 }
 
 # IAM Policy for Private EC2 S3 Access
