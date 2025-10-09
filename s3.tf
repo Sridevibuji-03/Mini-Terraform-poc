@@ -36,3 +36,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "s3_private1" {
     }
   }
 }
+
+
+resource "aws_s3_object" "test_file" {
+  bucket  = aws_s3_bucket.mini_dft_project_bucket.bucket
+  key     = "test-files/test.txt"
+  content = "Terraform S3 test file upload successful!"
+  acl     = "private"
+}
