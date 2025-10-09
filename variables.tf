@@ -58,3 +58,15 @@ variable "availability_zone" {
   type        = string
   default     = "us-west-1a"
 }
+
+variable "env" {
+  description = "Environment name (e.g. dev, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "private_key_content" {
+  description = "Private key used for SSH or provisioning"
+  type        = string
+  sensitive   = true
+}
